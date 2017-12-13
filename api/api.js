@@ -4,26 +4,28 @@ var path = require('path')
 var Server = require('mongodb').Server
 var multer = require('multer')
 var Db = require('mongodb').Db
+var config = require('../config/index')
+global.config = config
 var mongoDb = new Db(config.mongoDbName, new Server(config.mongoDbHost, config.mongoDbPort, {safe: true}))
-var router = express.Router()
+var app = express.Router()
 var jwt = require('jwt-simple')
 var ObjectId = require('mongodb').ObjectID
+//
+// function fsExistsSync(path) {
+//     try {
+//         fs.accessSync(path, fs.F_OK);
+//     } catch (e) {
+//         return false;
+//     }
+//     return true;
+// }
 
-function fsExistsSync(path) {
-    try {
-        fs.accessSync(path, fs.F_OK);
-    } catch (e) {
-        return false;
-    }
-    return true;
-}
-
-if (!fsExistsSync('dist')) {
-    fs.mkdir(path.join(__dirname, 'dist'))
-    if (!fsExistsSync('dist/images')) {
-        fs.mkdir(path.join(__dirname, 'dist/images'))
-    }
-}
+// if (!fsExistsSync('dist')) {
+//     fs.mkdir(path.join(__dirname, 'dist'))
+//     if (!fsExistsSync('dist/images')) {
+//         fs.mkdir(path.join(__dirname, 'dist/images'))
+//     }
+// }
 
 var storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -62,7 +64,7 @@ function decrypt(str) {
     return jwt.decode(str, config.jwtSecret)
 }
 
-router.all('*', function (req, res, next) {
+app.all('*', function (req, res, next) {
 
     res.header('Access-Control-Allow-Origin', 'http://localhost:' + config.port)
     res.header('Access-Control-Allow-Headers', 'Content-Type=application/jsoncharset=UTF-8')
@@ -72,7 +74,7 @@ router.all('*', function (req, res, next) {
 
 })
 
-router.get('*', function (req, res, next) {
+app.get('*', function (req, res, next) {
 
     if (req.url.indexOf('/api') > -1 || req.url.indexOf('/images') > -1 || req.url.indexOf('favicon.ico') > -1) {
         next()
@@ -82,32 +84,28 @@ router.get('*', function (req, res, next) {
 
 })
 
-router.post('/rest-Auth/login', function (req, res) {
-    // var token = decrypt(req.body.token)
-    var token = {userId: 1, user: 'fang',email:'1076996291@qq.com',password:'123'}
-    console.log(req.body)
-    var data = new User(req.body)
-    if (token) {
-        auth(token, function (err, user) {
-            if (err) {
-                return res.json({code: 1009, messgage: err})
+app.post('/rest-Auth/login', function (req, res) {
+    var user = new User(req.body)
+    auth(user, function (err, newUser) {
+        if (err) {
+            return res.json({code: 1009, messgage: err})
+        }
+        if (newUser) {
+            if (user.password === newUser.pwd) {
+                var token = encrypt(newUser._id, newUser.user)
+                //res.cookie(config.cookieName,JSON.stringify(user))
+                var data = {'user': newUser.user, 'token': token}
+                res.end(JSON.stringify({code: 1000, messgage: "登录成功", data: data}))
+            } else {
+                res.end(JSON.stringify({code: 1001, messgage: "密码错误"}))
             }
-            if (user) {
-                if (user.user === token.user) {
-                    var token1 = encrypt(user._id, user.name)
-                    var data = {'user': user.user, 'token': token1}
-                    res.json({code: 1000, messgage: "认证成功，token合法", data: data, token: 'abc'})
-                } else {
-                    res.json({code: 1001, messgage: "认证失败，非法的token", data: ''})
-                }
-            }
-        })
-    } else {
-        return false
-    }
+        } else {
+            res.end(JSON.stringify({code: 1002, messgage: "用户名不存在"}))
+        }
+    })
 })
 
-router.post('/rest-Auth/logout', function (req, res) {
+app.post('/rest-Auth/logout', function (req, res) {
     // var token = decrypt(req.body.token)
     var token = {userId: 1, user: 'fang'}
     if (token) {
@@ -129,7 +127,7 @@ router.post('/rest-Auth/logout', function (req, res) {
         return false
     }
 })
-router.get('/api/article/:page/:limit', function (req, res) {
+app.get('/api/article/:page/:limit', function (req, res) {
         var data = req.params
         data.page = Number(req.params.page)
         data.limit = Number(req.params.limit)
@@ -143,7 +141,7 @@ router.get('/api/article/:page/:limit', function (req, res) {
         })
     }
 )
-router.get('/api/detail', function (req, res) {
+app.get('/api/detail', function (req, res) {
         // console.log(req)
         fetchDetail(req, function (err, detail) {
             if (err) {
@@ -157,7 +155,7 @@ router.get('/api/detail', function (req, res) {
         })
     }
 )
-router.post('/api/article_upload', function (req, res) {
+app.post('/api/article_upload', function (req, res) {
         var newArticle = new Article(req.body)
         console.log(newArticle)
         insertArticle(newArticle, function (err, state) {
@@ -174,7 +172,7 @@ router.post('/api/article_upload', function (req, res) {
     }
 )
 
-router.get('/api/getUserInfo', function (req, res) {
+app.get('/api/getUserInfo', function (req, res) {
 
     if (req.cookies[config.cookieName]) {
         var cookies = JSON.parse(req.cookies[config.cookieName])
@@ -186,7 +184,7 @@ router.get('/api/getUserInfo', function (req, res) {
 
 })
 
-router.post('/api/login', function (req, res) {
+app.post('/api/login', function (req, res) {
 
     var newUser = new User(req.body)
     newUser.get(newUser.name, function (err, user) {
@@ -211,7 +209,7 @@ router.post('/api/login', function (req, res) {
 
 })
 
-router.post('/api/reg', function (req, res) {
+app.post('/api/reg', function (req, res) {
 
     var newUser = new User(req.body)
     newUser.get(newUser.name, function (err, user) {
@@ -228,13 +226,13 @@ router.post('/api/reg', function (req, res) {
 
 })
 
-router.get('/api/loginout', function (req, res) {
+app.get('/api/loginout', function (req, res) {
 
     return res.json({code: 1000, messgage: "退出成功"})
 })
 
-router.post('/api/publish', checkLogin)
-router.post('/api/publish', function (req, res) {
+app.post('/api/publish', checkLogin)
+app.post('/api/publish', function (req, res) {
 
     uploadImg(req, res, function (err) {
 
@@ -262,7 +260,7 @@ router.post('/api/publish', function (req, res) {
 
 })
 
-router.get('/api/newsList', function (req, res) {
+app.get('/api/newsList', function (req, res) {
 
     var page = req.query.page || 1
     var category = req.query.category
@@ -280,7 +278,7 @@ router.get('/api/newsList', function (req, res) {
 
 })
 
-router.get('/api/a/:name/:day/:title', function (req, res) {
+app.get('/api/a/:name/:day/:title', function (req, res) {
 
     var params = req.params
     Upload.getOne(params.name, params.day, params.title, function (err, oneDoc) {
@@ -298,7 +296,7 @@ router.get('/api/a/:name/:day/:title', function (req, res) {
 
 })
 
-router.post('/api/a/:name/:day/:title', function (req, res) {
+app.post('/api/a/:name/:day/:title', function (req, res) {
 
     var params = req.params
     var date = new Date()
@@ -315,7 +313,7 @@ router.post('/api/a/:name/:day/:title', function (req, res) {
 
 })
 
-router.get('/api/search', function (req, res) {
+app.get('/api/search', function (req, res) {
     var keywords = ''
     var keyword = req.query.keyword
 
@@ -333,7 +331,7 @@ router.get('/api/search', function (req, res) {
 
 })
 
-router.post('/api/about', function (req, res) {
+app.post('/api/about', function (req, res) {
 
     if (!req.session.user) {
         return res.json({code: 1001, messgage: "请先登录"})
@@ -351,7 +349,7 @@ router.post('/api/about', function (req, res) {
 
 })
 
-router.get('/api/about', function (req, res) {
+app.get('/api/about', function (req, res) {
 
     About.getInfo(function (err, data) {
         if (err) {
@@ -689,18 +687,18 @@ function About(content, callback) {
     })
 }
 
-function auth(req, callback) {
+function auth(user, callback) {
     mongoDb.open(function (err, db) {
         db.collection('Account', function (err, collection) {
             // collection.findOne({_id:ObjectId(token.userId)}, function(err, user) {
-            collection.find({email:req.email,pwd:req.password}, function (err, user) {
+            collection.findOne({email:user.email}, function (err, newUser) {
                 mongoDb.close()
-                console.log(user)
+                console.log(newUser)
                 if (err) {
                     return callback(err)
                 }
                 // console.log('user', user)
-                callback(null, user)
+                callback(null, newUser)
             })
         })
     })
@@ -784,4 +782,4 @@ About.getInfo = function (callback) {
     })
 }
 
-module.exports = router
+module.exports = app

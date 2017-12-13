@@ -9,7 +9,7 @@ console.log(isDev,process.env.NODE_ENV)
 var devConfig = {
     mongoDbHost : 'localhost',
     mongoDbPort : '27017',
-    mongoDbName : 'blog',
+    mongoDbName : 'test',
     host : 'localhost',
     port : '7070',
     isDev : isDev,
@@ -23,7 +23,7 @@ var devConfig = {
 var proConfig = {
     mongoDbHost : 'localhost',
     mongoDbPort : '27017',
-    mongoDbName : 'blog',
+    mongoDbName : 'test',
     host : 'localhost',
     port : '8080',
     isDev : isDev,
