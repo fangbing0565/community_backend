@@ -1,1 +1,1 @@
-/usr/local/mongodb/mongodb3.4.3/bin/mongod --dbpath /usr/local/mongodb/mongodb3.4.3/bin/data/test
+/usr/local/mongodb/mongodb3.2.4/bin/mongod --dbpath /usr/local/mongodb/mongodb3.2.4/bin/data/test

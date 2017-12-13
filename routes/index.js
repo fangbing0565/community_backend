@@ -77,7 +77,6 @@ function auth(user, callback) {
             // collection.findOne({_id:ObjectId(token.userId)}, function(err, user) {
             collection.findOne({email:user.email}, function (err, newUser) {
                 mongoDb.close()
-                console.log(newUser)
                 if (err) {
                     return callback(err)
                 }
@@ -193,7 +192,8 @@ module.exports = function(app) {
                 return res.json({code: 1009, messgage: err})
             }
             if (newUser) {
-                if (user.password === newUser.pwd) {
+                console.log(user.password, newUser.pwd)
+                if (user.password == newUser.pwd) {
                     var token = encrypt(newUser._id, newUser.user)
                     //res.cookie(config.cookieName,JSON.stringify(user))
                     var data = {'user': newUser.user, 'token': token}
@@ -208,26 +208,22 @@ module.exports = function(app) {
     })
 
     app.post('/rest-Auth/logout', function (req, res) {
-        // var token = decrypt(req.body.token)
-        var token = {userId: 1, user: 'fang'}
-        if (token) {
-            auth(token, function (err, user) {
-                if (err) {
-                    return res.json({code: 1009, messgage: err})
+        var user = new User(req.body)
+        auth(user, function (err, newUser) {
+            if (err) {
+                return res.json({code: 1009, messgage: err})
+            }
+            if (newUser) {
+                if (user.password === newUser.pwd) {
+                    var data = {'user': newUser.user}
+                    res.end(JSON.stringify({code: 1000, messgage: "退出成功", data: data}))
+                } else {
+                    res.end(JSON.stringify({code: 1001, messgage: "退出失败"}))
                 }
-                if (user) {
-                    if (user.user === token.user) {
-                        // var token1 = encrypt(user._id, user.name)
-                        var data = {'user': user.user}
-                        res.json({code: 1000, messgage: "退出成功", data: data})
-                    } else {
-                        res.json({code: 1001, messgage: "退出失败", data: ''})
-                    }
-                }
-            })
-        } else {
-            return false
-        }
+            } else {
+                res.end(JSON.stringify({code: 1002, messgage: "退出失败"}))
+            }
+        })
     })
     app.get('/api/article/:page/:limit', function (req, res) {
             var data = req.params
